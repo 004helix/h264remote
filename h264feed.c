@@ -4,6 +4,7 @@
 #include <sys/random.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <alloca.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -55,6 +56,7 @@ struct client {
 };
 
 static char magic[16] = "0123456789abcdef";
+static unsigned char delimiter[4] = "\0\0\0\1";
 static unsigned long inlen = 0;
 static unsigned char inbuffer[2097152];  // 2MiB
 static struct client *curr = NULL;
@@ -88,6 +90,7 @@ static void usage(int exit_code) {
 
 void process_frame(struct frame *frame)
 {
+    struct iovec iov[2];
     struct timespec ts;
     int64_t frame_nsec;
     int64_t local_nsec;
@@ -129,8 +132,13 @@ void process_frame(struct frame *frame)
         warnx("%p %d %lld.%09lld %lu", frame, qsize, latency / 1000000000LL, latency % 1000000000LL, frame->size);
     */
 
-    if (write(STDOUT_FILENO, frame->data, frame->size) < frame->size)
-        err(EXIT_FAILURE, "write(2)");
+    iov[0].iov_base = frame->data;
+    iov[0].iov_len = frame->size;
+    iov[1].iov_base = delimiter;
+    iov[1].iov_len = sizeof(delimiter);
+
+    if (writev(STDOUT_FILENO, iov, 2) < frame->size + sizeof(delimiter))
+        err(EXIT_FAILURE, "writev(2)");
 
     free(frame);
 }
@@ -138,6 +146,8 @@ void process_frame(struct frame *frame)
 
 void *worker(void *unused __attribute__((unused)))
 {
+    write(STDOUT_FILENO, delimiter, sizeof(delimiter));
+
     pthread_mutex_lock(&lock);
 
     for(;;) {
@@ -245,7 +255,7 @@ static void on_read(int fd, short ev, void *arg)
             goto close;
         }
 
-        c->frame = malloc(sizeof(struct frame) + size + 4);
+        c->frame = malloc(sizeof(struct frame) + size);
         if (c->frame == NULL) {
             warnx("client %s malloc(3): not enough memory", c->addr);
             goto close;
@@ -259,7 +269,7 @@ static void on_read(int fd, short ev, void *arg)
     if (inlen < sizeof(struct frame_header) + c->frame->size)
         return;
 
-    if (1 != EVP_DecryptUpdate(c->ctx, c->frame->data + 4, &outlen,
+    if (1 != EVP_DecryptUpdate(c->ctx, c->frame->data, &outlen,
                                inbuffer + sizeof(struct frame_header), c->frame->size)) {
         ERR_print_errors_fp(stderr);
         warnx("client %s closed due to ssl errors", c->addr);
@@ -271,8 +281,6 @@ static void on_read(int fd, short ev, void *arg)
         goto close;
     }
 
-    c->frame->size += 4;
-    memcpy(c->frame->data, "\0\0\0\1", 4);
     add_frame(c->frame);
 
     c->frame = NULL;
