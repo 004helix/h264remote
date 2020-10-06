@@ -1,0 +1,5 @@
+core
+build/*.o
+build/*.d
+h264feed
+h264send
