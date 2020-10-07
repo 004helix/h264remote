@@ -359,6 +359,7 @@ static void on_read_verify(int fd, short ev, void *arg)
     warnx("client %s authenticated", c->addr);
 
     curr = c;
+    inlen = 0;
     event_del(&c->ev);
     event_assign(&c->ev, eb, fd, EV_READ | EV_TIMEOUT | EV_PERSIST, on_read, c);
     tv.tv_sec = READ_TIMEOUT;
