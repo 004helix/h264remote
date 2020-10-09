@@ -504,7 +504,7 @@ int main(int argc, char **argv)
             {NULL, 0, NULL, 0}
         };
 
-        c = getopt_long(argc, argv, "ha:p:k:v", long_options, &option_index);
+        c = getopt_long(argc, argv, "ha:p:k:", long_options, &option_index);
 
         if (c == -1)
             break;
@@ -550,7 +550,7 @@ int main(int argc, char **argv)
     }
 
     if (addr == NULL || port == 0) {
-        warnx("you should specify address and port to connect to");
+        warnx("you should specify listen address and port");
         usage(EXIT_FAILURE);
     }
 
@@ -618,7 +618,7 @@ int main(int argc, char **argv)
     if (c)
         errx(EXIT_FAILURE, "pthread_create failed: %d", c);
 
-    /* start httpd loop */
+    /* start listen loop */
     event_assign(&listen_ev, eb, sock, EV_READ | EV_PERSIST, on_accept, NULL);
     event_add(&listen_ev, NULL);
 

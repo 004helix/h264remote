@@ -554,7 +554,7 @@ int main(int argc, char **argv)
             {NULL, 0, NULL, 0}
         };
 
-        c = getopt_long(argc, argv, "ha:p:s:k:v", long_options, &option_index);
+        c = getopt_long(argc, argv, "ha:p:s:k:", long_options, &option_index);
 
         if (c == -1)
             break;
