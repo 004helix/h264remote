@@ -100,10 +100,10 @@ void process_frame(struct frame *frame)
     local_nsec = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
     frame_nsec = (int64_t)frame->ts.tv_sec * 1000000000LL + frame->ts.tv_nsec;
 
-    wait_nsec = frame_nsec - local_nsec - latency;
+    wait_nsec = frame_nsec - local_nsec + latency;
 
     if (wait_nsec > 10000000000LL || wait_nsec < -10000000000LL) {
-        latency = frame_nsec - local_nsec;
+        latency = local_nsec - frame_nsec;
         wait_nsec = 0;
     }
 
