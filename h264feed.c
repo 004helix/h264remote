@@ -122,8 +122,9 @@ void process_frame(struct frame *frame)
         }
 
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
-        /* compensate time drift */
-        latency -= 100LL;
+
+        /* compensate time drift: 0.1ms */
+        latency -= 100000LL;
     }
 
     /*
