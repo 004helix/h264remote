@@ -71,7 +71,8 @@ static void on_connect(int fd, short event, void *arg);
 static void on_stdin_read(int fd, short event, void *arg);
 
 
-void nalu(const unsigned char *unit, size_t len) {
+void nalu(const unsigned char *unit, size_t len)
+{
     struct timeval tv;
     uint8_t nal_type;
 
@@ -509,7 +510,8 @@ static void on_stdin_read(int fd, short event, void *arg)
 }
 
 
-static void usage(int exit_code) {
+static void usage(int exit_code)
+{
     fprintf(stderr, "Usage: <generator> | h264send [option]...\n"
             "\n"
             "Options:\n"

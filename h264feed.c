@@ -74,7 +74,8 @@ static int qsize = 0;
 static int64_t latency = 0;
 
 
-static void usage(int exit_code) {
+static void usage(int exit_code)
+{
     fprintf(stderr, "Usage: <sender> | h264feed [option]...\n"
             "\n"
             "Options:\n"
@@ -102,7 +103,7 @@ void process_frame(struct frame *frame)
 
     wait_nsec = frame_nsec - local_nsec + latency;
 
-    /* 5 sec*/
+    /* 5 sec */
     if (wait_nsec > 5000000000LL || wait_nsec < -5000000000LL) {
         latency = local_nsec - frame_nsec;
         wait_nsec = 0;
@@ -152,7 +153,7 @@ void *worker(void *unused __attribute__((unused)))
 
     pthread_mutex_lock(&lock);
 
-    for(;;) {
+    for (;;) {
         /* process frames queue */
         while (head) {
             struct frame *frame = head;
