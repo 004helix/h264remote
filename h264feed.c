@@ -102,7 +102,8 @@ void process_frame(struct frame *frame)
 
     wait_nsec = frame_nsec - local_nsec + latency;
 
-    if (wait_nsec > 10000000000LL || wait_nsec < -10000000000LL) {
+    /* 5 sec*/
+    if (wait_nsec > 5000000000LL || wait_nsec < -5000000000LL) {
         latency = local_nsec - frame_nsec;
         wait_nsec = 0;
     }
