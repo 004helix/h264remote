@@ -628,6 +628,7 @@ int main(int argc, char **argv)
 
             case 'k':
                 b64key = strdup(optarg);
+                memset(optarg, '0', strlen(optarg));
                 break;
 
             case '?':

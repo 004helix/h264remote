@@ -56,6 +56,7 @@ struct client {
     int magiclen;
 };
 
+static unsigned char nodelay = 0;
 static char magic[16] = "0123456789abcdef";
 static unsigned char delimiter[4] = "\0\0\0\1";
 static unsigned long inlen = 0;
@@ -83,6 +84,7 @@ static void usage(int exit_code)
             " -h, --help            show this help\n"
             " -a, --addr=ADDRESS    feed address (required)\n"
             " -p, --port=PORT       feed port (required)\n"
+            " -n, --nodelay         push frames to stdout as fast as possible\n"
             " -k, --key=KEY         chacha20 key, 256 bit,\n"
             "                       base64 encoded (required)\n"
             "\n");
@@ -126,48 +128,51 @@ static void errlog(int die, int exit_code, int showerr, char *format, ...)
 void process_frame(struct frame *frame)
 {
     struct iovec iov[2];
-    struct timespec ts;
-    int64_t frame_nsec;
-    int64_t local_nsec;
-    int64_t wait_nsec;
 
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    local_nsec = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
-    frame_nsec = (int64_t)frame->ts.tv_sec * 1000000000LL + frame->ts.tv_nsec;
+    if (nodelay == 0) {
+        struct timespec ts;
+        int64_t frame_nsec;
+        int64_t local_nsec;
+        int64_t wait_nsec;
 
-    wait_nsec = frame_nsec - local_nsec + latency;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        local_nsec = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+        frame_nsec = (int64_t)frame->ts.tv_sec * 1000000000LL + frame->ts.tv_nsec;
 
-    /* 5 sec */
-    if (wait_nsec > 5000000000LL || wait_nsec < -5000000000LL) {
-        latency = local_nsec - frame_nsec;
-        wait_nsec = 0;
-    }
+        wait_nsec = frame_nsec - local_nsec + latency;
 
-    if (wait_nsec < 0) {
-        latency -= wait_nsec;
-        wait_nsec = 0;
-    }
-
-    if (wait_nsec > 0) {
-        ts.tv_sec += wait_nsec / 1000000000LL;
-        ts.tv_nsec += wait_nsec % 1000000000LL;
-        if (ts.tv_nsec >= 1000000000L) {
-            ts.tv_sec += 1;
-            ts.tv_nsec -= 1000000000L;
+        /* 5 sec */
+        if (wait_nsec > 5000000000LL || wait_nsec < -5000000000LL) {
+            latency = local_nsec - frame_nsec;
+            wait_nsec = 0;
         }
 
-        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
+        if (wait_nsec < 0) {
+            latency -= wait_nsec;
+            wait_nsec = 0;
+        }
 
-        /* compensate time drift: 0.1ms */
-        latency -= 100000LL;
+        if (wait_nsec > 0) {
+            ts.tv_sec += wait_nsec / 1000000000LL;
+            ts.tv_nsec += wait_nsec % 1000000000LL;
+            if (ts.tv_nsec >= 1000000000L) {
+                ts.tv_sec += 1;
+                ts.tv_nsec -= 1000000000L;
+            }
+
+            clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL);
+
+            /* compensate time drift: 0.1ms */
+            latency -= 100000LL;
+        }
+
+        /*
+        if (latency < 0)
+            warnx("%p %d -%lld.%09lld %lu", frame, qsize, -latency / 1000000000LL, -latency % 1000000000LL, frame->size);
+        else
+            warnx("%p %d %lld.%09lld %lu", frame, qsize, latency / 1000000000LL, latency % 1000000000LL, frame->size);
+        */
     }
-
-    /*
-    if (latency < 0)
-        warnx("%p %d -%lld.%09lld %lu", frame, qsize, -latency / 1000000000LL, -latency % 1000000000LL, frame->size);
-    else
-        warnx("%p %d %lld.%09lld %lu", frame, qsize, latency / 1000000000LL, latency % 1000000000LL, frame->size);
-    */
 
     iov[0].iov_base = frame->data;
     iov[0].iov_len = frame->size;
@@ -538,10 +543,11 @@ int main(int argc, char **argv)
             {"addr", required_argument, NULL, 'a'},
             {"port", required_argument, NULL, 'p'},
             {"key", required_argument, NULL, 'k'},
+            {"nodelay", required_argument, NULL, 'n'},
             {NULL, 0, NULL, 0}
         };
 
-        c = getopt_long(argc, argv, "ha:p:k:", long_options, &option_index);
+        c = getopt_long(argc, argv, "ha:p:k:n", long_options, &option_index);
 
         if (c == -1)
             break;
@@ -571,6 +577,10 @@ int main(int argc, char **argv)
             case 'k':
                 b64key = strdup(optarg);
                 memset(optarg, '0', strlen(optarg));
+                break;
+
+            case 'n':
+                nodelay++;
                 break;
 
             case '?':
