@@ -8,6 +8,7 @@
 #include <alloca.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -15,7 +16,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <err.h>
+#include <time.h>
 
 /* libevent */
 #include <event2/event_struct.h>
@@ -86,6 +87,39 @@ static void usage(int exit_code)
             "                       base64 encoded (required)\n"
             "\n");
     exit(exit_code);
+}
+
+
+#define err(code, format, ...)   errlog(1, code, 1, format, ##__VA_ARGS__)
+#define errx(code, format, ...)  errlog(1, code, 0, format, ##__VA_ARGS__)
+#define warn(format, ...)        errlog(0, 0, 1, format, ##__VA_ARGS__)
+#define warnx(format, ...)       errlog(0, 0, 0, format, ##__VA_ARGS__)
+static void errlog(int die, int exit_code, int showerr, char *format, ...)
+{
+    char buffer[4096];
+    char timebuffer[64];
+    struct timespec ts;
+    struct tm tm;
+    va_list args;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+    localtime_r(&ts.tv_sec, &tm);
+    snprintf(timebuffer, sizeof(timebuffer),
+             "%04d-%02d-%02d %02d:%02d:%02d,%03ld",
+             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+             tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000L);
+
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    if (showerr)
+        fprintf(stderr, "%s h264feed: %s: %s\n", timebuffer, buffer, strerror(errno));
+    else
+        fprintf(stderr, "%s h264feed: %s\n", timebuffer, buffer);
+
+    if (die)
+        exit(exit_code);
 }
 
 
@@ -536,6 +570,7 @@ int main(int argc, char **argv)
 
             case 'k':
                 b64key = strdup(optarg);
+                memset(optarg, '0', strlen(optarg));
                 break;
 
             case '?':
